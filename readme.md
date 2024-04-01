@@ -155,8 +155,14 @@ if [ $? -eq 0 ]; then
     # Update requirements.txt
     pip freeze > requirements.txt
 
-    # Add requirements.txt to the staging area
-    git add requirements.txt
+    # Check if requirements.txt has changed
+    if ! git diff --quiet --exit-code -- requirements.txt; then
+        echo "Updating requirements.txt"
+        # Add requirements.txt to the staging area
+        git add requirements.txt
+    else
+        echo "No changes in requirements.txt. Skipping commit."
+    fi
 else
     echo "Tests failed. Commit aborted."
     exit 1
