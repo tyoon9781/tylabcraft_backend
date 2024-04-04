@@ -3,10 +3,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from myapplication.api import v1
 from myapplication.database.connection import connect_db
+from dotenv import load_dotenv
 
 import os
 
 ## Initialize DB
+load_dotenv()
 connect_db.init_db()
 
 ## Init Web Application Instanceo
