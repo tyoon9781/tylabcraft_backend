@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from myapplication.database.crud import ItemCrud
 from myapplication.database.schema import ItemSchema
 from myapplication.database.model import ItemModel
-from myapplication.database.connection import get_db, init_db
+from myapplication.database.connection import connect_db
 from myapplication import app
 from fastapi import status
 
@@ -37,20 +37,21 @@ class DummyItem:
 class TestCaseV1(unittest.TestCase):
     print("TestCase API V1")
     
-    TEST_DB_HOST = os.getenv("TEST_DB_HOST")
-    BACKEND_PORT = os.getenv("BACKEND_PORT")
-    base_url = f"http://{TEST_DB_HOST}:{BACKEND_PORT}/api/v1"
+    DEV_BACKEND_PORT = os.getenv("DEV_BACKEND_PORT")
+    base_url = f"http://localhost:{DEV_BACKEND_PORT}/api/v1"
     
-    assert os.getenv("IS_TEST") == "TRUE"
+    client = TestClient(app=app.app_instance, base_url=base_url)
 
     def setUp(self):
-        init_db()
-        self.client = TestClient(app=app.app_instance, base_url=self.base_url)
-    
+        pass
+
     def tearDown(self):
-        session = next(get_db())
+        session = self._get_db()
         session.query(ItemModel).delete()
         session.commit()
+
+    def _get_db(self):
+        return next(connect_db.get_db())
 
     def test_health_check(self):
         response = self.client.get("/")
@@ -62,7 +63,7 @@ class TestCaseV1(unittest.TestCase):
         assert response.status_code == status.HTTP_200_OK
 
         item_id = response.json()["id"]
-        db_item = ItemCrud.read_item(item_id, next(get_db()))
+        db_item = ItemCrud.read_item(item_id, self._get_db())
         assert db_item.title == DummyItem.title
         assert db_item.description == DummyItem.description
 
@@ -70,7 +71,7 @@ class TestCaseV1(unittest.TestCase):
         response = self.client.get("/items/1")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-        db_item = ItemCrud.create_item(ItemSchema.NeedCreate(**DummyItem.to_dict()), next(get_db()))
+        db_item = ItemCrud.create_item(ItemSchema.NeedCreate(**DummyItem.to_dict()), self._get_db())
         response = self.client.get(f"/items/{db_item.id}")
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["title"] == DummyItem.title
@@ -86,7 +87,7 @@ class TestCaseV1(unittest.TestCase):
         assert len(response.json()) == 0
 
         items = [ItemSchema.NeedCreate(**DummyItem.to_dict(i)) for i in range(CREATE_ITEM)]
-        db_items = ItemCrud._create_items(items, next(get_db()))
+        db_items = ItemCrud._create_items(items, self._get_db())
         response = self.client.get("/items", params={"skip": SKIP, "limit": LIMIT})
         assert response.status_code == status.HTTP_200_OK
         assert response.json()[0]["title"] == db_items[SKIP].title
@@ -100,7 +101,7 @@ class TestCaseV1(unittest.TestCase):
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
     def test_update_item_title(self):
-        db_item = ItemCrud.create_item(ItemSchema.NeedCreate(**DummyItem.to_dict()), next(get_db()))
+        db_item = ItemCrud.create_item(ItemSchema.NeedCreate(**DummyItem.to_dict()), self._get_db())
         response = self.client.put(f"/items/{db_item.id}", params={"new_title": ""})
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
@@ -115,7 +116,7 @@ class TestCaseV1(unittest.TestCase):
         response = self.client.delete("/items/1")
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
-        db_item = ItemCrud.create_item(ItemSchema.NeedCreate(**DummyItem.to_dict()), next(get_db()))
+        db_item = ItemCrud.create_item(ItemSchema.NeedCreate(**DummyItem.to_dict()), self._get_db())
         response = self.client.delete(f"/items/{db_item.id}")
         assert response.status_code == status.HTTP_200_OK
 

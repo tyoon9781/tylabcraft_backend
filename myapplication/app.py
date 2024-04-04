@@ -2,28 +2,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from myapplication.api import v1
-from myapplication.database.connection import init_db
+from myapplication.database.connection import connect_db
 
-from dotenv import load_dotenv
 import os
 
-## environment variable
-load_dotenv()
-
 ## Initialize DB
-init_db()
+connect_db.init_db()
 
 ## Init Web Application Instanceo
-origins = [
-    f"{os.getenv('BACKEND_HOST')}",     ## backend ip
-    "http://localhost:3000",            ## next.js test
-    "http://tylabcraft.com",            ## main url
-]
+allow_origins = os.getenv('ALLOW_ORIGINS').split(",")
     
 app_instance = FastAPI()
 app_instance.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=allow_origins,
     allow_credentials=True, ## cookie allow
     allow_methods=["*"],
     allow_headers=["*"],
