@@ -168,3 +168,133 @@ else
     exit 1
 fi
 ```
+
+## Alembic
+
+reference : https://alembic.sqlalchemy.org/en/latest/tutorial.html
+
+### init
+
+```bash
+alembic init alembic_db
+alembic init alembic_testdb
+```
+
+### alembic_db.ini db_url settings
+
+```bash
+sqlalchemy.url = %(DB_URL)s
+```
+
+### alembic_testdb.ini db_url settings
+
+```bash
+sqlalchemy.url = %(TEST_DB_URL)s
+```
+
+### alembic_db/env.py, alembic_testdb/env.py
+
+```python
+from myapplication.database.model import Base
+target_metadata = Base.metadata
+```
+
+### first Migration
+
+```bash
+## test db
+alembic -c alembic_testdb.ini revision -m "init testdb"
+alembic -c alembic_testdb.ini upgrade head
+## db
+alembic -c alembic_db.ini revision -m "init db"
+alembic -c alembic_db.ini upgrade head
+```
+
+### change db, migration
+
+```bash
+## example Description
+alembic -c alembic_testdb.ini revision --autogenerate -m "[title] [description]"
+alembic -c alembic_testdb.ini upgrade head
+
+alembic -c alembic_db.ini revision --autogenerate -m "[title] [description]"
+alembic -c alembic_db.ini upgrade head
+```
+
+## how to make api?
+
+### 1. Make Model (Example : User)
+
+```python
+## reference : https://fastapi.tiangolo.com/tutorial/sql-databases/
+class UserModel(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String, index=True, unique=True)
+    username = Column(String, index=True, unique=True)
+    password = Column(String)
+    is_active = Column(Boolean)
+```
+
+### 2. Make Schema
+
+```python
+class UserSchema:
+    class UserCreate(BaseModel):
+        email: str
+        username: str
+        password: str
+
+    class UserOut(BaseModel):
+        username: str
+        email: str
+```
+
+### 3. Make Crud
+
+```python
+class UserCrud:
+    @classmethod
+    def create_user(cls, user:UserSchema.UserCreate, db:Session) -> UserSchema.UserOut:
+        ## password -> hash_password
+        hash_password = get_hash_password(user.password)
+        db_user = UserModel(**user.model_dump())
+
+        db.add(db_user)
+        db.commit()
+        return db_user
+```
+
+### 4. Make API
+
+```python
+@router.post("/users", response_model=UserSchema.UserOut)
+async def create_user(user:UserSchema.UserCreate, db:Session=Depends(conn_db.get_db)):
+    return UserCrud.create_user(user, db)
+```
+
+### 5. Test
+
+```python
+class TestCaseV1(unitttest.TestCase):
+    def setup(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_create_user(self):
+        ...
+```
+
+## Attack -> Defense checklist
+
+1. XSS -> sanitization
+1. CSRF, SSRF -> csrf token, samesite cookie, CORS policy
+1. SQL injection -> parameter query, ORM
+1. DDoS -> WAF(Web Application Firewall), Traffic limit, IP block, CDN
+1. Packet hijacking -> https
+1. Cookie Poisoning -> Session managing
+1. DB leak -> password Encryption, salt and pepper
+1. System Broken -> Backup Container, Snapshot

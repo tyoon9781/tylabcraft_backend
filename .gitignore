@@ -7,3 +7,7 @@ __pycache__/
 
 ## Python Virtual Environment
 .venv/
+
+## alembic 
+alembic*.ini
+alembic*/
